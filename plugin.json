@@ -1,0 +1,11 @@
+{
+  "name": "Frame View",
+  "author": "CriticalFlaw",
+  "flags": [],
+  "api_version": 1,
+  "publish": {
+    "tags": ["steam-frame", "vr", "streaming", "spectator"],
+    "description": "Watch what a Steam Frame wearer sees, live on your Steam Deck.",
+    "image": "https://opengraph.githubassets.com/1/CriticalFlaw/decky-frame-view"
+  }
+}
