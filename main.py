@@ -1,10 +1,13 @@
 import os
-
-# The decky plugin module is located at decky-loader/plugin
-# For easy intellisense checkout the decky-loader code repo
-# and add the `decky-loader/plugin/imports` path to `python.analysis.extraPaths` in `.vscode/settings.json`
 import decky
 import asyncio
+
+import remote
+
+# The plugin's own SSH key and list of trusted headsets (~/homebrew/settings/frame-view)
+KEY = os.path.join(decky.DECKY_PLUGIN_SETTINGS_DIR, "id_ed25519")
+KNOWN_HOSTS = os.path.join(decky.DECKY_PLUGIN_SETTINGS_DIR, "known_hosts")
+SSH_ENV = {k: v for k, v in os.environ.items() if k != "LD_LIBRARY_PATH"}
 
 class Plugin:
     # A normal method. It can be called from the TypeScript side using @decky/api.
@@ -33,8 +36,29 @@ class Plugin:
         decky.logger.info("Frame View uninstalling")
         pass
 
-    async def start_timer(self):
-        self.loop.create_task(self.long_running())
+    async def test_connection(self, host: str) -> dict:
+        try:
+            argv = remote.ssh_command(KEY, KNOWN_HOSTS, host.strip(), "hostname; ls /dev/video99")
+        except ValueError as e:
+            return {"ok": False, "message": str(e)}
+
+        # Run ssh without blocking Decky while it waits for the Frame.
+        proc = await asyncio.create_subprocess_exec(
+            *argv, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=SSH_ENV
+        )
+        out, err = await proc.communicate()
+        out, err = out.decode().strip(), err.decode().strip()
+
+        # Code 255 is returned when we couldn't connect or log into the Frame.
+        if proc.returncode == 255:
+            decky.logger.info(f"ssh failed: {err}")
+            return {"ok": False, "message": err.splitlines()[-1] if err else "ssh failed"}
+
+        # Otherwise it passes on the exit code of the command: ls fails if the device is missing.
+        name = out.splitlines()[0] if out else host
+        if proc.returncode == 0:
+            return {"ok": True, "message": f"Connected to {name}. Ready to view."}
+        return {"ok": True, "message": f"Connected to {name}. Start SteamVR on the Frame to see its view."}
 
     # Migrations that should be performed before entering `_main()`.
     async def _migration(self):

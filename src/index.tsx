@@ -3,11 +3,16 @@ import { callable, definePlugin } from "@decky/api"
 import { useState } from "react";
 import { FaVrCardboard } from "react-icons/fa";
 
-const testConnection = callable<[host: string], string>("test_connection");
+interface Result {
+  ok: boolean;
+  message: string;
+}
+
+const testConnection = callable<[host: string], Result>("test_connection");
 
 function Content() {
   const [host, setHost] = useState("frame.local");
-  const [result, setResult] = useState("");
+  const [result, setResult] = useState<Result | "">("");
   const [busy, setBusy] = useState(false);
 
   const test = async () => {
@@ -16,7 +21,7 @@ function Content() {
     try {
       setResult(await testConnection(host));
     } catch (e) {
-      setResult(`Error: ${e}`);
+      setResult({ ok: false, message: String(e) });
     } finally {
       setBusy(false);
     }
@@ -34,7 +39,7 @@ function Content() {
       </PanelSectionRow>
       {result && (
         <PanelSectionRow>
-          <Field focusable description={result} />
+          <Field focusable label={result.ok ? "Connected" : "Not connected"} description={result.message} />
           </PanelSectionRow>
         )}
     </PanelSection>
